@@ -1,14 +1,16 @@
 
 
-var sampleSql = 'SELECT TOP 1000 * FROM dbo.Table WHERE X = Y ORDER BY Name DESC'
+var sampleSql = `SELECT TOP 1000 [Category], [Amount] FROM dbo.Table
+WHERE X = Y AND [Amount] = 3 ORDER BY Name DESC`
+
 var mongoQuery = 'db.'
 
 sampleSql = sampleSql.toLowerCase()
-  .replace('[', '')
-  .replace(']', '')
+  .replace(/\[/g, '')
+  .replace(/\]/g, '')
   .replace('dbo.', '')
   .replace('\n', ' ')
-
+console.log(sampleSql)
 // FROM <table> 	            1.
 if (sampleSql.includes('join')) {
   mongoQuery += sampleSql.substring(sampleSql.indexOf(' from ') + 5, sampleSql.indexOf(' join '))
@@ -33,7 +35,7 @@ if (sampleSql.startsWith('select')) {
   console.log('invalid query')
 }
 
-// WHERE <predicate on rows> 	2.
+// WHERE <predicate on rows> 	  2.
 var whereClause = ''
 
 if (sampleSql.includes('group by')) {
@@ -45,7 +47,7 @@ if (sampleSql.includes('group by')) {
 }
 
 if (whereClause.includes(' and ')) {
-
+  mongoQuery += whereClause.replace(/=/g, ':').replace(/ and /g, ', ').trimStart().trimEnd()
 } else {
   mongoQuery += whereClause.replace('=', ':').trimStart().trimEnd()
 }
@@ -53,7 +55,7 @@ if (whereClause.includes(' and ')) {
 // GROUP BY <columns> 	        3.
 // HAVING <predicate on groups> 4.
 
-// SELECT <columns> 	        5.
+// SELECT <columns> 	          5.
 var columns = sampleSql.substring(sampleSql.indexOf('select ') + 7, sampleSql.indexOf(' from '))
                        .replace(/top [0-9]+/g, '')
                        .replace(' ', '')
@@ -70,11 +72,26 @@ if (columns !== '*') {
   })
 }
 
+mongoQuery += ' })'
+
 // ORDER BY <columns> 	        6.
+if (sampleSql.includes('order by')) {
+  // need to handle multiple sorts?
+  mongoQuery += '.sort({ ' 
+    + sampleSql.substring(sampleSql.indexOf(' order by ') + 10)
+               .replace(/ asc/g, ': 1')
+               .replace(/ desc/g, ': -1')
+    + ' })'
+}
 
 // OFFSET 	                    7.
 // FETCH FIRST 	                8.
 
-mongoQuery += ' })'
+if (sampleSql.includes(' top ')) {
+  mongoQuery += '.limit({ ' 
+    + sampleSql.substring(sampleSql.indexOf(' top ') + 5, sampleSql.indexOf(' top ') + 9) // hack, need to add regex
+    + ' })'
+}
+
 
 console.log(mongoQuery)
